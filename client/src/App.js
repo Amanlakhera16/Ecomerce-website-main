@@ -9,6 +9,7 @@ import ShopListing from "./pages/ShopListing";
 import Favourite from "./pages/Favourite";
 import Cart from "./pages/Cart";
 import ProductDetails from "./pages/ProductDetails";
+import Contact from "./pages/Contact";
 import { useDispatch, useSelector } from "react-redux";
 import ToastMessage from "./components/ToastMessage";
 
@@ -26,7 +27,7 @@ const Container = styled.div`
 
 function App() {
   const { currentUser } = useSelector((state) => state.user);
-  const { open, message, severity } = useSelector((state) => state.user);
+  const { open, message, severity } = useSelector((state) => state.snackbar);
   const [openAuth, setOpenAuth] = useState(false);
   return (
     <ThemeProvider theme={lightTheme}>
@@ -39,6 +40,7 @@ function App() {
             <Route path="/favorite" exact element={<Favourite />} />
             <Route path="/cart" exact element={<Cart />} />
             <Route path="/shop/:id" exact element={<ProductDetails />} />
+            <Route path="/contact" exact element={<Contact />} />
           </Routes>
           {openAuth && (
             <Authentication openAuth={openAuth} setOpenAuth={setOpenAuth} />

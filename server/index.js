@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import * as dotenv from "dotenv";
 import UserRouter from "./routes/User.js";
 import ProductRoutes from "./routes/Products.js";
+import ContactRoutes from "./routes/Contact.js";
 dotenv.config();
 
 const app = express();
@@ -19,6 +20,7 @@ app.get("/", async (req, res) => {
 
 app.use("/api/user/", UserRouter);
 app.use("/api/products/", ProductRoutes);
+app.use("/api/contact/", ContactRoutes);
 
 //error handel (must be registered after routes)
 app.use((err, req, res, next) => {
