@@ -47,16 +47,25 @@ const CardWrapper = styled.div`
 const Favourite = () => {
   const [loading, setLoading] = useState(false);
   const [products, setProducts] = useState([]);
-  const [reload, setReload] = useState(false);
+  const favouriteIds = products.map((p) => p._id);
 
   const getProducts = async () => {
     setLoading(true);
     const token = localStorage.getItem("krist-app-token");
-    await getFavourite(token).then((res) => {
-      setProducts(res.data);
+    if (!token) {
+      setProducts([]);
       setLoading(false);
-      setReload(!reload);
-    });
+      return;
+    }
+    await getFavourite(token)
+      .then((res) => {
+        setProducts(res.data);
+        setLoading(false);
+      })
+      .catch(() => {
+        setProducts([]);
+        setLoading(false);
+      });
   };
 
   useEffect(() => {
@@ -76,7 +85,16 @@ const Favourite = () => {
               ) : (
                 <CardWrapper>
                   {products.map((product) => (
-                    <ProductCard product={product} />
+                    <ProductCard
+                      key={product._id}
+                      product={product}
+                      favouriteIds={favouriteIds}
+                      onFavouriteChange={(isFav, id) => {
+                        if (!isFav) {
+                          setProducts((prev) => prev.filter((p) => p._id !== id));
+                        }
+                      }}
+                    />
                   ))}
                 </CardWrapper>
               )}

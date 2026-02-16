@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from "react";
 import ProductCard from "../components/cards/ProductCard";
 import styled from "styled-components";
-import { category, filter } from "../utils/data";
+import { filter } from "../utils/data";
 import { CircularProgress, Slider } from "@mui/material";
-import { getAllProducts } from "../api";
+import { getAllProducts, getFavourite } from "../api";
+import { useLocation } from "react-router-dom";
+import { useDispatch } from "react-redux";
+import { openSnackbar } from "../redux/reducers/snackbarSlice";
 
 const Container = styled.div`
   padding: 20px 30px;
@@ -91,9 +94,12 @@ const SelectableItem = styled.div`
 `;
 
 const ShopListing = () => {
+  const location = useLocation();
+  const dispatch = useDispatch();
   const [loading, setLoading] = useState(false);
   const [products, setProducts] = useState([]);
   const [priceRange, setPriceRange] = useState([0, 1000]);
+  const [favouriteIds, setFavouriteIds] = useState([]);
   const [selectedSizes, setSelectedSizes] = useState(["S", "M", "L", "XL"]); // Default selected sizes
   const [selectedCategories, setSelectedCategories] = useState([
     "Men",
@@ -101,6 +107,16 @@ const ShopListing = () => {
     "Kids",
     "Bags",
   ]); // Default selected categories
+
+  const loadFavourites = async () => {
+    const token = localStorage.getItem("krist-app-token");
+    if (!token) return setFavouriteIds([]);
+    await getFavourite(token)
+      .then((res) => {
+        setFavouriteIds((res.data || []).map((p) => p._id));
+      })
+      .catch(() => setFavouriteIds([]));
+  };
 
   const getFilteredProductsData = async () => {
     setLoading(true);
@@ -113,15 +129,38 @@ const ShopListing = () => {
           ? `&categories=${selectedCategories.join(",")}`
           : ""
       }`
-    ).then((res) => {
-      setProducts(res.data);
-      setLoading(false);
-    });
+    )
+      .then((res) => {
+        setProducts(res.data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        setProducts([]);
+        setLoading(false);
+        dispatch(
+          openSnackbar({
+            message: err?.response?.data?.message || err.message,
+            severity: "error",
+          })
+        );
+      });
   };
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const categoryFromQuery = params.get("category");
+    if (categoryFromQuery) {
+      setSelectedCategories([categoryFromQuery]);
+    }
+  }, [location.search]);
 
   useEffect(() => {
     getFilteredProductsData();
   }, [priceRange, selectedSizes, selectedCategories]);
+
+  useEffect(() => {
+    loadFavourites();
+  }, []);
   return (
     <Container>
       {loading ? (
@@ -131,13 +170,13 @@ const ShopListing = () => {
           <Filters>
             <Menu>
               {filter.map((filters) => (
-                <FilterSection>
+                <FilterSection key={filters.value}>
                   <Title>{filters.name}</Title>
                   {filters.value === "price" ? (
                     <>
                       <Slider
                         aria-label="Price"
-                        defaultValue={priceRange}
+                        value={priceRange}
                         min={0}
                         max={1000}
                         valueLabelDisplay="auto"
@@ -145,7 +184,9 @@ const ShopListing = () => {
                           { value: 0, label: "$0" },
                           { value: 1000, label: "$1000" },
                         ]}
-                        onChange={(e, newValue) => setPriceRange(newValue)}
+                        onChangeCommitted={(e, newValue) =>
+                          setPriceRange(newValue)
+                        }
                       />
                     </>
                   ) : filters.value === "size" ? (
@@ -196,7 +237,17 @@ const ShopListing = () => {
           <Products>
             <CardWrapper>
               {products?.map((product) => (
-                <ProductCard key={product._id} product={product} />
+                <ProductCard
+                  key={product._id}
+                  product={product}
+                  favouriteIds={favouriteIds}
+                  onFavouriteChange={(isFav, id) => {
+                    setFavouriteIds((prev) => {
+                      if (isFav) return prev.includes(id) ? prev : [...prev, id];
+                      return prev.filter((x) => x !== id);
+                    });
+                  }}
+                />
               ))}
             </CardWrapper>
           </Products>

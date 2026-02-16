@@ -146,7 +146,13 @@ const ProductDetails = () => {
   const addFavorite = async () => {
     setFavoriteLoading(true);
     const token = localStorage.getItem("krist-app-token");
-    await addToFavourite(token, { productID: product?._id })
+    if (!token) {
+      setFavoriteLoading(false);
+      return dispatch(
+        openSnackbar({ message: "Please sign in to use favourites", severity: "info" })
+      );
+    }
+    await addToFavourite(token, { productId: id })
       .then((res) => {
         setFavorite(true);
         setFavoriteLoading(false);
@@ -155,7 +161,7 @@ const ProductDetails = () => {
         setFavoriteLoading(false);
         dispatch(
           openSnackbar({
-            message: err.message,
+            message: err?.response?.data?.message || err.message,
             severity: "error",
           })
         );
@@ -164,7 +170,13 @@ const ProductDetails = () => {
   const removeFavorite = async () => {
     setFavoriteLoading(true);
     const token = localStorage.getItem("krist-app-token");
-    await deleteFromFavourite(token, { productID: product?._id })
+    if (!token) {
+      setFavoriteLoading(false);
+      return dispatch(
+        openSnackbar({ message: "Please sign in to use favourites", severity: "info" })
+      );
+    }
+    await deleteFromFavourite(token, { productId: id })
       .then((res) => {
         setFavorite(false);
         setFavoriteLoading(false);
@@ -173,7 +185,7 @@ const ProductDetails = () => {
         setFavoriteLoading(false);
         dispatch(
           openSnackbar({
-            message: err.message,
+            message: err?.response?.data?.message || err.message,
             severity: "error",
           })
         );
@@ -182,7 +194,13 @@ const ProductDetails = () => {
   const addCart = async () => {
     setCartLoading(true);
     const token = localStorage.getItem("krist-app-token");
-    await addToCart(token, { productId: product?._id, quantity: 1 })
+    if (!token) {
+      setCartLoading(false);
+      return dispatch(
+        openSnackbar({ message: "Please sign in to add to cart", severity: "info" })
+      );
+    }
+    await addToCart(token, { productId: id, quantity: 1 })
       .then((res) => {
         setCartLoading(false);
         navigate("/cart");
@@ -191,7 +209,7 @@ const ProductDetails = () => {
         setCartLoading(false);
         dispatch(
           openSnackbar({
-            message: err.message,
+            message: err?.response?.data?.message || err.message,
             severity: "error",
           })
         );
@@ -200,11 +218,14 @@ const ProductDetails = () => {
   const checkFavourite = async () => {
     setFavoriteLoading(true);
     const token = localStorage.getItem("krist-app-token");
-    await getFavourite(token, { productId: product?._id })
+    if (!token) {
+      setFavorite(false);
+      setFavoriteLoading(false);
+      return;
+    }
+    await getFavourite(token)
       .then((res) => {
-        const isFavorite = res.data?.some(
-          (favorite) => favorite._id === product?._id
-        );
+        const isFavorite = (res.data || []).some((fav) => fav._id === id);
         setFavorite(isFavorite);
         setFavoriteLoading(false);
       })
@@ -212,7 +233,7 @@ const ProductDetails = () => {
         setFavoriteLoading(false);
         dispatch(
           openSnackbar({
-            message: err.message,
+            message: err?.response?.data?.message || err.message,
             severity: "error",
           })
         );
@@ -222,7 +243,7 @@ const ProductDetails = () => {
   useEffect(() => {
     getProduct();
     checkFavourite();
-  }, []);
+  }, [id]);
 
   return (
     <Container>

@@ -11,7 +11,6 @@ import {
   addToCart,
   addToFavourite,
   deleteFromFavourite,
-  getFavourite,
 } from "../../api";
 import { useDispatch } from "react-redux";
 import { openSnackbar } from "../../redux/reducers/snackbarSlice";
@@ -93,8 +92,6 @@ const Rate = styled.div`
 `;
 
 const Details = styled.div`
-import { useDispatch } from "react-redux";
-import { openSnackbar } from "../../redux/reducers/snackbarSlice";
   display: flex;
   gap: 6px;
   flex-direction: column;
@@ -134,25 +131,34 @@ const Percent = styled.div`
   color: green;
 `;
 
-const ProductCard = ({ product }) => {
+const ProductCard = ({ product, favouriteIds = null, onFavouriteChange }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const [favorite, setFavorite] = useState(false);
+  const [favorite, setFavorite] = useState(
+    Array.isArray(favouriteIds) ? favouriteIds.includes(product?._id) : false
+  );
   const [favoriteLoading, setFavoriteLoading] = useState(false);
 
   const addFavorite = async () => {
     setFavoriteLoading(true);
     const token = localStorage.getItem("krist-app-token");
-    await addToFavourite(token, { productID: product?._id })
+    if (!token) {
+      setFavoriteLoading(false);
+      return dispatch(
+        openSnackbar({ message: "Please sign in to use favourites", severity: "info" })
+      );
+    }
+    await addToFavourite(token, { productId: product?._id })
       .then((res) => {
         setFavorite(true);
         setFavoriteLoading(false);
+        onFavouriteChange?.(true, product?._id);
       })
       .catch((err) => {
         setFavoriteLoading(false);
         dispatch(
           openSnackbar({
-            message: err.message,
+            message: err?.response?.data?.message || err.message,
             severity: "error",
           })
         );
@@ -161,16 +167,23 @@ const ProductCard = ({ product }) => {
   const removeFavorite = async () => {
     setFavoriteLoading(true);
     const token = localStorage.getItem("krist-app-token");
-    await deleteFromFavourite(token, { productID: product?._id })
+    if (!token) {
+      setFavoriteLoading(false);
+      return dispatch(
+        openSnackbar({ message: "Please sign in to use favourites", severity: "info" })
+      );
+    }
+    await deleteFromFavourite(token, { productId: product?._id })
       .then((res) => {
         setFavorite(false);
         setFavoriteLoading(false);
+        onFavouriteChange?.(false, product?._id);
       })
       .catch((err) => {
         setFavoriteLoading(false);
         dispatch(
           openSnackbar({
-            message: err.message,
+            message: err?.response?.data?.message || err.message,
             severity: "error",
           })
         );
@@ -178,6 +191,11 @@ const ProductCard = ({ product }) => {
   };
   const addCart = async () => {
     const token = localStorage.getItem("krist-app-token");
+    if (!token) {
+      return dispatch(
+        openSnackbar({ message: "Please sign in to add to cart", severity: "info" })
+      );
+    }
     await addToCart(token, { productId: product?._id, quantity: 1 })
       .then((res) => {
         navigate("/cart");
@@ -185,28 +203,7 @@ const ProductCard = ({ product }) => {
       .catch((err) => {
         dispatch(
           openSnackbar({
-            message: err.message,
-            severity: "error",
-          })
-        );
-      });
-  };
-  const checkFavourite = async () => {
-    setFavoriteLoading(true);
-    const token = localStorage.getItem("krist-app-token");
-    await getFavourite(token, { productId: product?._id })
-      .then((res) => {
-        const isFavorite = res.data?.some(
-          (favorite) => favorite._id === product?._id
-        );
-        setFavorite(isFavorite);
-        setFavoriteLoading(false);
-      })
-      .catch((err) => {
-        setFavoriteLoading(false);
-        dispatch(
-          openSnackbar({
-            message: err.message,
+            message: err?.response?.data?.message || err.message,
             severity: "error",
           })
         );
@@ -214,8 +211,9 @@ const ProductCard = ({ product }) => {
   };
 
   useEffect(() => {
-    checkFavourite();
-  }, []);
+    if (!Array.isArray(favouriteIds)) return;
+    setFavorite(favouriteIds.includes(product?._id));
+  }, [favouriteIds, product?._id]);
   return (
     <Card>
       <Top>
@@ -236,7 +234,7 @@ const ProductCard = ({ product }) => {
               </>
             )}
           </MenuItem>{" "}
-          <MenuItem onClick={() => addCart(product?.id)}>
+          <MenuItem onClick={addCart}>
             <AddShoppingCartOutlined
               sx={{ color: "inherit", fontSize: "20px" }}
             />

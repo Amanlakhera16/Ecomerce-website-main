@@ -91,6 +91,6 @@ export const getProductById = async (req, res, next) => {
     }
     return res.status(200).json(product);
   } catch (err) {
-    return next(error);
+    return next(err);
   }
 };

@@ -201,6 +201,12 @@ export const addToFavorites = async (req, res, next) => {
     const { productId } = req.body;
     const userJWT = req.user;
     const user = await User.findById(userJWT.id);
+    if (!user) {
+      return next(createError(404, "User not found"));
+    }
+    if (!productId) {
+      return next(createError(400, "productId is required"));
+    }
 
     if (!user.favourites.includes(productId)) {
       user.favourites.push(productId);
@@ -209,7 +215,10 @@ export const addToFavorites = async (req, res, next) => {
 
     return res
       .status(200)
-      .json({ message: "Product added to favorites successfully", user });
+      .json({
+        message: "Product added to favorites successfully",
+        user: sanitizeUser(user),
+      });
   } catch (err) {
     next(err);
   }
@@ -220,12 +229,21 @@ export const removeFromFavorites = async (req, res, next) => {
     const { productId } = req.body;
     const userJWT = req.user;
     const user = await User.findById(userJWT.id);
+    if (!user) {
+      return next(createError(404, "User not found"));
+    }
+    if (!productId) {
+      return next(createError(400, "productId is required"));
+    }
 
     user.favourites = user.favourites.filter((fav) => !fav.equals(productId));
     await user.save();
     return res
       .status(200)
-      .json({ message: "Product removed from favorites successfully", user });
+      .json({
+        message: "Product removed from favorites successfully",
+        user: sanitizeUser(user),
+      });
   } catch (err) {
     next(err);
   }

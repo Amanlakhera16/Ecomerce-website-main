@@ -10,7 +10,8 @@ import Favourite from "./pages/Favourite";
 import Cart from "./pages/Cart";
 import ProductDetails from "./pages/ProductDetails";
 import Contact from "./pages/Contact";
-import { useDispatch, useSelector } from "react-redux";
+import Search from "./pages/Search";
+import { useSelector } from "react-redux";
 import ToastMessage from "./components/ToastMessage";
 
 const Container = styled.div`
@@ -41,6 +42,7 @@ function App() {
             <Route path="/cart" exact element={<Cart />} />
             <Route path="/shop/:id" exact element={<ProductDetails />} />
             <Route path="/contact" exact element={<Contact />} />
+            <Route path="/search" exact element={<Search />} />
           </Routes>
           {openAuth && (
             <Authentication openAuth={openAuth} setOpenAuth={setOpenAuth} />

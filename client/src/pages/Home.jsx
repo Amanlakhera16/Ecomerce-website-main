@@ -105,7 +105,9 @@ import HeaderImage from "../utils/Images/Header.png";
 import { category } from "../utils/data";
 import ProductCategoryCard from "../components/cards/ProductCategoryCard";
 import ProductCard from "../components/cards/ProductCard";
-import { getAllProducts } from "../api";
+import { getAllProducts, getFavourite } from "../api";
+import { useDispatch } from "react-redux";
+import { openSnackbar } from "../redux/reducers/snackbarSlice";
 
 const Container = styled.div`
   padding: 20px 30px;
@@ -156,19 +158,40 @@ const CardWrapper = styled.div`
 `;
 
 const Home = () => {
+  const dispatch = useDispatch();
   const [loading, setLoading] = useState(false);
   const [products, setProducts] = useState([]);
+  const [favouriteIds, setFavouriteIds] = useState([]);
 
   const getProducts = async () => {
     setLoading(true);
-    await getAllProducts().then((res) => {
-      setProducts(res.data);
-      setLoading(false);
-    });
+    await getAllProducts()
+      .then((res) => {
+        setProducts(res.data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        setProducts([]);
+        setLoading(false);
+        dispatch(
+          openSnackbar({
+            message: err?.response?.data?.message || err.message,
+            severity: "error",
+          })
+        );
+      });
   };
 
   useEffect(() => {
     getProducts();
+  }, []);
+
+  useEffect(() => {
+    const token = localStorage.getItem("krist-app-token");
+    if (!token) return setFavouriteIds([]);
+    getFavourite(token)
+      .then((res) => setFavouriteIds((res.data || []).map((p) => p._id)))
+      .catch(() => setFavouriteIds([]));
   }, []);
 
   return (
@@ -189,8 +212,18 @@ const Home = () => {
       <Section>
         <Title $center>Our Bestseller</Title>
         <CardWrapper>
-          {products.map((product, index) => (
-            <ProductCard key={product.id || index} product={product} />
+          {products.map((product) => (
+            <ProductCard
+              key={product._id}
+              product={product}
+              favouriteIds={favouriteIds}
+              onFavouriteChange={(isFav, id) => {
+                setFavouriteIds((prev) => {
+                  if (isFav) return prev.includes(id) ? prev : [...prev, id];
+                  return prev.filter((x) => x !== id);
+                });
+              }}
+            />
           ))}
         </CardWrapper>
       </Section>
