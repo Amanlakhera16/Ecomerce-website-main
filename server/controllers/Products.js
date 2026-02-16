@@ -2,6 +2,9 @@ import mongoose from "mongoose";
 import Products from "../models/Products.js";
 import { createError } from "../error.js";
 
+const escapeRegExp = (str) => String(str).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const toExactIRegex = (str) => new RegExp(`^${escapeRegExp(str)}$`, "i");
+
 export const addProducts = async (req, res, next) => {
   try {
     const productsData = req.body;
@@ -42,27 +45,44 @@ export const addProducts = async (req, res, next) => {
 export const getproducts = async (req, res, next) => {
   try {
     let { categories, minPrice, maxPrice, sizes, search } = req.query;
-    sizes = sizes?.split(",");
-    categories = categories?.split(",");
+    sizes = sizes
+      ? String(sizes)
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : null;
+    categories = categories
+      ? String(categories)
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : null;
 
     const filter = {};
 
-    if (categories && Array.isArray(categories)) {
-      filter.category = { $in: categories }; // Match products in any of the specified categories
+    if (Array.isArray(categories) && categories.length > 0) {
+      // Case-insensitive exact match against any category in the array field.
+      filter.category = { $in: categories.map(toExactIRegex) };
     }
 
     if (minPrice || maxPrice) {
+      const min = minPrice != null ? Number.parseFloat(minPrice) : null;
+      const max = maxPrice != null ? Number.parseFloat(maxPrice) : null;
       filter["price.org"] = {};
-      if (minPrice) {
-        filter["price.org"]["$gte"] = parseFloat(minPrice);
+      if (Number.isFinite(min)) {
+        filter["price.org"]["$gte"] = min;
       }
-      if (maxPrice) {
-        filter["price.org"]["$lte"] = parseFloat(maxPrice);
+      if (Number.isFinite(max)) {
+        filter["price.org"]["$lte"] = max;
+      }
+      if (Object.keys(filter["price.org"]).length === 0) {
+        delete filter["price.org"];
       }
     }
 
-    if (sizes && Array.isArray(sizes)) {
-      filter.sizes = { $in: sizes }; // Match products in any of the specified sizes
+    if (Array.isArray(sizes) && sizes.length > 0) {
+      // Case-insensitive exact match against any size in the array field.
+      filter.sizes = { $in: sizes.map(toExactIRegex) };
     }
 
     if (search) {
@@ -76,6 +96,29 @@ export const getproducts = async (req, res, next) => {
     return res.status(200).json(products);
   } catch (err) {
     next(err);
+  }
+};
+
+export const getProductsMeta = async (req, res, next) => {
+  try {
+    const [categories, sizes] = await Promise.all([
+      Products.distinct("category"),
+      Products.distinct("sizes"),
+    ]);
+
+    // Best-effort max price for a nicer slider default.
+    const maxPriceAgg = await Products.aggregate([
+      { $group: { _id: null, max: { $max: "$price.org" } } },
+    ]);
+    const maxPrice = Number(maxPriceAgg?.[0]?.max || 0);
+
+    return res.status(200).json({
+      categories: (categories || []).filter(Boolean).sort(),
+      sizes: (sizes || []).filter(Boolean).sort(),
+      maxPrice,
+    });
+  } catch (err) {
+    return next(err);
   }
 };
 

@@ -42,9 +42,9 @@ const Menu = styled.div`
   color: ${({ theme }) => theme.text_primary};
   top: 14px;
   right: 14px;
-  display: none;
   flex-direction: column;
   gap: 12px;
+  display: flex;
 `;
 
 const Top = styled.div`
@@ -61,20 +61,18 @@ const Top = styled.div`
   &:hover ${Image} {
     opacity: 0.9;
   }
-  &:hover ${Menu} {
-    display: flex;
-  }
 `;
 const MenuItem = styled.div`
   border-radius: 50%;
   width: 18px;
   height: 18px;
-  background: white;
+  background: rgba(255, 255, 255, 0.96);
   padding: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 200;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.14);
 `;
 
 const Rate = styled.div`
@@ -129,6 +127,33 @@ const Percent = styled.div`
   font-size: 12px;
   font-weight: 500;
   color: green;
+`;
+
+const Actions = styled.div`
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+`;
+
+const BuyButton = styled.button`
+  flex: 1;
+  border: none;
+  cursor: pointer;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-weight: 700;
+  background: ${({ theme }) => theme.primary};
+  color: white;
+  transition: all 0.2s ease;
+  &:hover {
+    opacity: 0.95;
+    transform: translateY(-1px);
+  }
+  &:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none;
+  }
 `;
 
 const ProductCard = ({ product, favouriteIds = null, onFavouriteChange }) => {
@@ -220,24 +245,30 @@ const ProductCard = ({ product, favouriteIds = null, onFavouriteChange }) => {
         <Image src={product?.img} />
         <Menu>
           <MenuItem
-            onClick={() => (favorite ? removeFavorite() : addFavorite())}
+            onClick={(e) => {
+              e.stopPropagation();
+              favorite ? removeFavorite() : addFavorite();
+            }}
           >
             {favoriteLoading ? (
-              <CircularProgress sx={{ fontSize: "20px" }} />
+              <CircularProgress size={18} />
             ) : (
               <>
                 {favorite ? (
                   <FavoriteRounded sx={{ fontSize: "20px", color: "red" }} />
                 ) : (
-                  <FavoriteBorder sx={{ fontSize: "20px" }} />
+                  <FavoriteBorder sx={{ fontSize: "20px", color: "#111" }} />
                 )}
               </>
             )}
           </MenuItem>{" "}
-          <MenuItem onClick={addCart}>
-            <AddShoppingCartOutlined
-              sx={{ color: "inherit", fontSize: "20px" }}
-            />
+          <MenuItem
+            onClick={(e) => {
+              e.stopPropagation();
+              addCart();
+            }}
+          >
+            <AddShoppingCartOutlined sx={{ fontSize: "20px", color: "#111" }} />
           </MenuItem>
         </Menu>
         <Rate>
@@ -251,6 +282,17 @@ const ProductCard = ({ product, favouriteIds = null, onFavouriteChange }) => {
           ${product?.price?.org} <Span>${product?.price?.mrp}</Span>
           <Percent>${product?.price?.off}% Off</Percent>
         </Price>
+        <Actions>
+          <BuyButton
+            disabled={favoriteLoading}
+            onClick={(e) => {
+              e.stopPropagation();
+              addCart();
+            }}
+          >
+            Buy
+          </BuyButton>
+        </Actions>
       </Details>
     </Card>
   );

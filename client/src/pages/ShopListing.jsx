@@ -100,13 +100,14 @@ const ShopListing = () => {
   const [products, setProducts] = useState([]);
   const [priceRange, setPriceRange] = useState([0, 1000]);
   const [favouriteIds, setFavouriteIds] = useState([]);
-  const [selectedSizes, setSelectedSizes] = useState(["S", "M", "L", "XL"]); // Default selected sizes
-  const [selectedCategories, setSelectedCategories] = useState([
-    "Men",
-    "Women",
-    "Kids",
-    "Bags",
-  ]); // Default selected categories
+  const [selectedSizes, setSelectedSizes] = useState([]);
+  const [selectedCategories, setSelectedCategories] = useState([]);
+
+  const clearFilters = () => {
+    setPriceRange([0, 1000]);
+    setSelectedSizes([]);
+    setSelectedCategories([]);
+  };
 
   const loadFavourites = async () => {
     const token = localStorage.getItem("krist-app-token");
@@ -120,16 +121,17 @@ const ShopListing = () => {
 
   const getFilteredProductsData = async () => {
     setLoading(true);
+    const queryParts = [
+      `minPrice=${priceRange[0]}`,
+      `maxPrice=${priceRange[1]}`,
+      selectedSizes.length > 0 ? `sizes=${selectedSizes.join(",")}` : null,
+      selectedCategories.length > 0
+        ? `categories=${selectedCategories.join(",")}`
+        : null,
+    ].filter(Boolean);
+
     // Call the API function for filtered products
-    await getAllProducts(
-      `minPrice=${priceRange[0]}&maxPrice=${priceRange[1]}${
-        selectedSizes.length > 0 ? `&sizes=${selectedSizes.join(",")}` : ""
-      }${
-        selectedCategories.length > 0
-          ? `&categories=${selectedCategories.join(",")}`
-          : ""
-      }`
-    )
+    await getAllProducts(queryParts.join("&"))
       .then((res) => {
         setProducts(res.data);
         setLoading(false);
@@ -232,23 +234,34 @@ const ShopListing = () => {
                   ) : null}
                 </FilterSection>
               ))}
+              <FilterSection>
+                <SelectableItem selected={false} onClick={clearFilters}>
+                  Clear filters
+                </SelectableItem>
+              </FilterSection>
             </Menu>
           </Filters>
           <Products>
             <CardWrapper>
-              {products?.map((product) => (
-                <ProductCard
-                  key={product._id}
-                  product={product}
-                  favouriteIds={favouriteIds}
-                  onFavouriteChange={(isFav, id) => {
-                    setFavouriteIds((prev) => {
-                      if (isFav) return prev.includes(id) ? prev : [...prev, id];
-                      return prev.filter((x) => x !== id);
-                    });
-                  }}
-                />
-              ))}
+              {products?.length === 0 ? (
+                <div style={{ padding: "20px", opacity: 0.9 }}>
+                  No products found for the selected filters.
+                </div>
+              ) : (
+                products?.map((product) => (
+                  <ProductCard
+                    key={product._id}
+                    product={product}
+                    favouriteIds={favouriteIds}
+                    onFavouriteChange={(isFav, id) => {
+                      setFavouriteIds((prev) => {
+                        if (isFav) return prev.includes(id) ? prev : [...prev, id];
+                        return prev.filter((x) => x !== id);
+                      });
+                    }}
+                  />
+                ))
+              )}
             </CardWrapper>
           </Products>
         </>

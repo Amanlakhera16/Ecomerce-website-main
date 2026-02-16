@@ -80,7 +80,11 @@ const Sale = styled.div`
 const ProductCategoryCard = ({ category }) => {
   const navigate = useNavigate();
   return (
-    <Card onClick={() => navigate(`/shop?category=${category.name}`)}>
+    <Card
+      onClick={() =>
+        navigate(`/shop?category=${encodeURIComponent(category.name)}`)
+      }
+    >
       <Top>
         <Image src={category.img} />
         <Menu>
