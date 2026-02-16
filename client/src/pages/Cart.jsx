@@ -131,6 +131,30 @@ const Delivery = styled.div`
   flex-direction: column;
 `;
 
+const PaymentToggleRow = styled.div`
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+`;
+
+const PaymentChip = styled.div`
+  cursor: pointer;
+  border: 1px solid ${({ theme }) => theme.text_secondary + 50};
+  color: ${({ theme }) => theme.text_secondary + 90};
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 14px;
+  width: fit-content;
+  ${({ selected, theme }) =>
+    selected &&
+    `
+  border: 1px solid ${theme.text_primary};
+  color: ${theme.text_primary};
+  background: ${theme.text_primary + 12};
+  font-weight: 600;
+  `}
+`;
+
 const Cart = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
@@ -147,17 +171,40 @@ const Cart = () => {
     completeAddress: "",
   });
 
+  const [paymentMode, setPaymentMode] = useState("card"); // "card" | "cod"
+  const [cardDetails, setCardDetails] = useState({
+    cardNumber: "",
+    expiry: "",
+    cvv: "",
+    holderName: "",
+  });
+
   const getProducts = async () => {
     setLoading(true);
     const token = localStorage.getItem("krist-app-token");
-    await getCart(token).then((res) => {
-      setProducts(res.data);
+    if (!token) {
+      setProducts([]);
       setLoading(false);
-    });
+      return;
+    }
+    await getCart(token)
+      .then((res) => {
+        setProducts(res.data);
+        setLoading(false);
+      })
+      .catch(() => {
+        setProducts([]);
+        setLoading(false);
+      });
   };
 
   const addCart = async (id) => {
     const token = localStorage.getItem("krist-app-token");
+    if (!token) {
+      return dispatch(
+        openSnackbar({ message: "Please sign in to modify cart", severity: "info" })
+      );
+    }
     await addToCart(token, { productId: id, quantity: 1 })
       .then((res) => {
         setReload(!reload);
@@ -175,6 +222,11 @@ const Cart = () => {
 
   const removeCart = async (id, quantity, type) => {
     const token = localStorage.getItem("krist-app-token");
+    if (!token) {
+      return dispatch(
+        openSnackbar({ message: "Please sign in to modify cart", severity: "info" })
+      );
+    }
     let qnt = quantity > 0 ? 1 : null;
     if (type === "full") qnt = null;
     await deleteFromCart(token, {
@@ -211,9 +263,35 @@ const Cart = () => {
     return `${addressObj.firstName} ${addressObj.lastName}, ${addressObj.completeAddress}, ${addressObj.phoneNumber}, ${addressObj.emailAddress}`;
   };
 
+  const simulatePayment = async ({ amount, mode }) => {
+    // Simulate a real payment gateway flow (no external calls).
+    await new Promise((r) => setTimeout(r, 1400));
+    if (amount <= 0) throw new Error("Invalid amount");
+    if (mode === "card") {
+      // Lightweight validation for UX realism.
+      const card = cardDetails.cardNumber.replace(/\s+/g, "");
+      if (card.length < 12) throw new Error("Invalid card number");
+      if (!cardDetails.expiry) throw new Error("Invalid expiry date");
+      if (String(cardDetails.cvv || "").length < 3) throw new Error("Invalid CVV");
+      if (!cardDetails.holderName) throw new Error("Invalid card holder name");
+    }
+    return { status: "paid", provider: "simulated" };
+  };
+
   const PlaceOrder = async () => {
     setButtonLoad(true);
     try {
+      const token = localStorage.getItem("krist-app-token");
+      if (!token) {
+        dispatch(
+          openSnackbar({
+            message: "Please sign in to place an order.",
+            severity: "info",
+          })
+        );
+        return;
+      }
+
       const isDeliveryDetailsFilled =
         deliveryDetails.firstName &&
         deliveryDetails.lastName &&
@@ -231,15 +309,46 @@ const Cart = () => {
         );
         return;
       }
-      const token = localStorage.getItem("krist-app-token");
-      const totalAmount = calculateSubtotal().toFixed(2);
+
+      if (!products || products.length === 0) {
+        dispatch(
+          openSnackbar({
+            message: "Your cart is empty.",
+            severity: "info",
+          })
+        );
+        return;
+      }
+
+      const totalAmount = Number(calculateSubtotal().toFixed(2));
+
+      dispatch(
+        openSnackbar({
+          message:
+            paymentMode === "cod"
+              ? "Confirming order (Cash on Delivery)..."
+              : "Processing payment (simulated)...",
+          severity: "info",
+        })
+      );
+
+      if (paymentMode !== "cod") {
+        await simulatePayment({ amount: totalAmount, mode: paymentMode });
+      }
+
       const orderDetails = {
-        products,
+        products: products.map((item) => ({
+          productId: item?.product?._id,
+          quantity: item?.quantity,
+        })),
         address: convertAddressToString(deliveryDetails),
         totalAmount,
+        payment: { mode: paymentMode, simulated: true },
       };
 
-      await placeOrder(token, orderDetails);
+      await placeOrder(token, orderDetails).catch((err) => {
+        throw new Error(err?.response?.data?.message || "Failed to place order");
+      });
 
       // Show success message or navigate to a success page
       dispatch(
@@ -248,17 +357,17 @@ const Cart = () => {
           severity: "success",
         })
       );
-      setButtonLoad(false);
       // Clear the cart and update the UI
       setReload(!reload);
     } catch (error) {
       // Handle errors, show error message, etc.
       dispatch(
         openSnackbar({
-          message: "Failed to place order. Please try again.",
+          message: error?.message || "Failed to place order. Please try again.",
           severity: "error",
         })
       );
+    } finally {
       setButtonLoad(false);
     }
   };
@@ -414,23 +523,98 @@ const Cart = () => {
                   </div>
                 </Delivery>
                 <Delivery>
-                  Payment Details:
+                  Payment Details (Simulated):
                   <div>
-                    <TextInput small placeholder="Card Number" />
+                    <PaymentToggleRow>
+                      <PaymentChip
+                        selected={paymentMode === "card"}
+                        onClick={() => setPaymentMode("card")}
+                      >
+                        Card (Simulated)
+                      </PaymentChip>
+                      <PaymentChip
+                        selected={paymentMode === "cod"}
+                        onClick={() => setPaymentMode("cod")}
+                      >
+                        Cash on Delivery
+                      </PaymentChip>
+                    </PaymentToggleRow>
+
+                    {paymentMode === "card" && (
+                      <>
+                        <TextInput
+                          small
+                          placeholder="Card Number"
+                          value={cardDetails.cardNumber}
+                          handelChange={(e) =>
+                            setCardDetails({
+                              ...cardDetails,
+                              cardNumber: e.target.value,
+                            })
+                          }
+                        />
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: "6px",
+                          }}
+                        >
+                          <TextInput
+                            small
+                            placeholder="Expiry Date (MM/YY)"
+                            value={cardDetails.expiry}
+                            handelChange={(e) =>
+                              setCardDetails({
+                                ...cardDetails,
+                                expiry: e.target.value,
+                              })
+                            }
+                          />
+                          <TextInput
+                            small
+                            placeholder="CVV"
+                            value={cardDetails.cvv}
+                            handelChange={(e) =>
+                              setCardDetails({
+                                ...cardDetails,
+                                cvv: e.target.value,
+                              })
+                            }
+                          />
+                        </div>
+                        <TextInput
+                          small
+                          placeholder="Card Holder name"
+                          value={cardDetails.holderName}
+                          handelChange={(e) =>
+                            setCardDetails({
+                              ...cardDetails,
+                              holderName: e.target.value,
+                            })
+                          }
+                        />
+                      </>
+                    )}
+
+                    {paymentMode === "cod" && (
+                      <div style={{ fontSize: "14px", opacity: 0.9 }}>
+                        You will pay at delivery. No payment information needed.
+                      </div>
+                    )}
                     <div
                       style={{
-                        display: "flex",
-                        gap: "6px",
+                        marginTop: "10px",
+                        fontSize: "12px",
+                        opacity: 0.85,
                       }}
                     >
-                      <TextInput small placeholder="Expiry Date" />
-                      <TextInput small placeholder="CVV" />
+                      Payments are simulated for now. Orders will still be created
+                      and shown in your account.
                     </div>
-                    <TextInput small placeholder="Card Holder name" />
                   </div>
                 </Delivery>
                 <Button
-                  text="Pace Order"
+                  text={paymentMode === "cod" ? "Place Order" : "Pay & Place Order"}
                   small
                   isLoading={buttonLoad}
                   isDisabled={buttonLoad}

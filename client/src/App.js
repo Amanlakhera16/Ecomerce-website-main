@@ -11,6 +11,7 @@ import Cart from "./pages/Cart";
 import ProductDetails from "./pages/ProductDetails";
 import Contact from "./pages/Contact";
 import Search from "./pages/Search";
+import Orders from "./pages/Orders";
 import { useSelector } from "react-redux";
 import ToastMessage from "./components/ToastMessage";
 
@@ -40,6 +41,7 @@ function App() {
             <Route path="/shop" exact element={<ShopListing />} />
             <Route path="/favorite" exact element={<Favourite />} />
             <Route path="/cart" exact element={<Cart />} />
+            <Route path="/orders" exact element={<Orders />} />
             <Route path="/shop/:id" exact element={<ProductDetails />} />
             <Route path="/contact" exact element={<Contact />} />
             <Route path="/search" exact element={<Search />} />

@@ -18,8 +18,10 @@ export const UserSignIn = async (data) => await API.post("/user/signin", data);
 export const sendContactMessage = async (data) => await API.post("/contact", data);
 
 //Products
-export const getAllProducts = async (filter) =>
-  await API.get(`/products?${filter}`);
+export const getAllProducts = async (filter) => {
+  if (!filter) return await API.get("/products");
+  return await API.get(`/products?${filter}`);
+};
 
 export const getProductDetails = async (id) => await API.get(`/products/${id}`);
 

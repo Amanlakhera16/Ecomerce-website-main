@@ -215,6 +215,11 @@ const ProductDetails = () => {
         );
       });
   };
+
+  const buyNow = async () => {
+    // For now, simulate “Buy Now” by ensuring the item is in cart and taking user to checkout area.
+    await addCart();
+  };
   const checkFavourite = async () => {
     setFavoriteLoading(true);
     const token = localStorage.getItem("krist-app-token");
@@ -285,7 +290,7 @@ const ProductDetails = () => {
                 isLoading={cartLoading}
                 onClick={() => addCart()}
               />
-              <Button text="Buy Now" full />
+              <Button text="Buy Now" full onClick={buyNow} />
               <Button
                 leftIcon={
                   favorite ? (

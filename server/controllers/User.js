@@ -1,9 +1,11 @@
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 import dotenv from "dotenv";
 import { createError } from "../error.js";
 import User from "../models/User.js";
 import Orders from "../models/Orders.js";
+import Products from "../models/Products.js";
 
 dotenv.config();
 
@@ -159,17 +161,63 @@ export const getAllCartItems = async (req, res, next) => {
 
 export const placeOrder = async (req, res, next) => {
   try {
-    const { products, address, totalAmount } = req.body;
+    const { products, address, totalAmount, payment } = req.body;
     const userJWT = req.user;
     const user = await User.findById(userJWT.id);
     if (!user) {
       return next(createError(404, "User not found"));
     }
+    if (!Array.isArray(products) || products.length === 0) {
+      return next(createError(400, "products must be a non-empty array"));
+    }
+    if (!address) {
+      return next(createError(400, "address is required"));
+    }
+
+    const normalized = products
+      .map((p) => ({
+        productId: p?.productId || p?.product || p?.product?._id,
+        quantity: Number(p?.quantity || 0),
+      }))
+      .filter((p) => p.productId && Number.isFinite(p.quantity) && p.quantity > 0);
+
+    if (normalized.length === 0) {
+      return next(createError(400, "No valid products in order"));
+    }
+
+    const uniqueIds = [...new Set(normalized.map((p) => String(p.productId)))];
+    const dbProducts = await Products.find({ _id: { $in: uniqueIds } }).select(
+      "_id price"
+    );
+    if (dbProducts.length !== uniqueIds.length) {
+      return next(createError(400, "One or more products are invalid"));
+    }
+
+    const productMap = new Map(dbProducts.map((p) => [String(p._id), p]));
+    const computedTotal = normalized.reduce((sum, item) => {
+      const prod = productMap.get(String(item.productId));
+      const price = Number(prod?.price?.org || 0);
+      return sum + price * item.quantity;
+    }, 0);
+
     const order = new Orders({
-      products,
+      products: normalized.map((p) => ({
+        product: p.productId,
+        quantity: p.quantity,
+      })),
       user: user._id,
-      total_amount: totalAmount,
-      address,
+      total_amount: mongoose.Types.Decimal128.fromString(
+        Number.isFinite(computedTotal)
+          ? computedTotal.toFixed(2)
+          : Number(totalAmount || 0).toFixed(2)
+      ),
+      address: String(address),
+      status:
+        payment?.mode === "cod"
+          ? "Cash on Delivery"
+          : payment?.simulated
+            ? "Paid (Simulated)"
+            : "Payment Pending",
     });
     await order.save();
 
@@ -187,7 +235,9 @@ export const placeOrder = async (req, res, next) => {
 export const getAllOrders = async (req, res, next) => {
   try {
     const user = req.user;
-    const orders = await Orders.find({ user: user.id });
+    const orders = await Orders.find({ user: user.id })
+      .populate({ path: "products.product", model: "Products" })
+      .sort({ createdAt: -1 });
     return res.status(200).json(orders);
   } catch (err) {
     next(err);
