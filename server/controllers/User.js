@@ -7,10 +7,26 @@ import Orders from "../models/Orders.js";
 
 dotenv.config();
 
+const getJwtSecret = () => {
+  const secret = process.env.JWT;
+  if (!secret) throw createError(500, "Server misconfigured: JWT secret missing");
+  return secret;
+};
+
+const sanitizeUser = (userDoc) => {
+  if (!userDoc) return userDoc;
+  const obj = userDoc.toObject ? userDoc.toObject() : { ...userDoc };
+  delete obj.password;
+  return obj;
+};
+
 //user register controller
 export const UserRegister = async (req, res, next) => {
   try {
     const { email, password, name, img } = req.body;
+    if (!email || !password || !name) {
+      return next(createError(400, "Name, email, and password are required"));
+    }
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return next(createError(409, "Email is already in use"));
@@ -24,11 +40,13 @@ export const UserRegister = async (req, res, next) => {
       password: hashedpassword,
       img,
     });
-    const createduser = user.save();
-    const token = jwt.sign({ id: createduser._id }, process.env.JWT, {
-      expiresIn: "9999 years",
-    });
-    return res.status(200).json({ token, user });
+    const createdUser = await user.save();
+    const token = jwt.sign(
+      { id: createdUser._id },
+      getJwtSecret(),
+      { expiresIn: process.env.JWT_EXPIRES_IN || "30d" }
+    );
+    return res.status(201).json({ token, user: sanitizeUser(createdUser) });
   } catch (error) {
     return next(error);
   }
@@ -38,23 +56,27 @@ export const UserRegister = async (req, res, next) => {
 export const UserLogin = async (req, res, next) => {
   try {
     const { email, password } = req.body;
-    console.log(email);
+    if (!email || !password) {
+      return next(createError(400, "Email and password are required"));
+    }
     const existingUser = await User.findOne({ email });
     if (!existingUser) {
       return next(createError(404, "user not found"));
     }
 
-    const isPasswordCorrect = await bcrypt.compareSync(
+    const isPasswordCorrect = bcrypt.compareSync(
       password,
       existingUser.password
     );
     if (!isPasswordCorrect) {
       return next(createError(403, "Incorrect password"));
     }
-    const token = jwt.sign({ id: existingUser._id }, process.env.JWT, {
-      expiresIn: "9999 years",
-    });
-    return res.status(200).json({ token, user: existingUser });
+    const token = jwt.sign(
+      { id: existingUser._id },
+      getJwtSecret(),
+      { expiresIn: process.env.JWT_EXPIRES_IN || "30d" }
+    );
+    return res.status(200).json({ token, user: sanitizeUser(existingUser) });
   } catch (error) {
     return next(error);
   }
@@ -140,6 +162,9 @@ export const placeOrder = async (req, res, next) => {
     const { products, address, totalAmount } = req.body;
     const userJWT = req.user;
     const user = await User.findById(userJWT.id);
+    if (!user) {
+      return next(createError(404, "User not found"));
+    }
     const order = new Orders({
       products,
       user: user._id,
@@ -147,8 +172,6 @@ export const placeOrder = async (req, res, next) => {
       address,
     });
     await order.save();
-
-    user.cart.save();
 
     user.cart = [];
     await user.save();

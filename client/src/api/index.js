@@ -1,7 +1,14 @@
 import axios from "axios";
 
+const normalizeBaseUrl = (url) => {
+  if (!url) return url;
+  return url.endsWith("/") ? url : `${url}/`;
+};
+
 const API = axios.create({
-  baseURL: "http://localhost:8080/api/",
+  baseURL: normalizeBaseUrl(
+    process.env.REACT_APP_API_BASE_URL || "http://localhost:8080/api"
+  ),
 });
 
 export const UserSignUp = async (data) => await API.post("/user/signup", data);

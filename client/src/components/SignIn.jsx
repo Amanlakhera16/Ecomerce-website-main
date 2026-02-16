@@ -96,7 +96,7 @@ const SignIn = () => {
   return (
     <Container>
       <div>
-        <Title>Welcome to Krist 👋</Title>
+        <Title>Welcome to Krist</Title>
         <Span>Please login with your details here</Span>
       </div>
       <div style={{ display: "flex", gap: "20px", flexDirection: "column" }}>
